@@ -168,24 +168,58 @@ def generate_forecast(df, forecast_df, grade, models, scalers_X, scalers_y, feat
 
 
 def plot_forecast_vs_actual(historical_df, forecast_df, grade):
-    """Create plot comparing forecasted vs actual demand"""
+    """Create plot comparing forecasted vs actual demand with seamless transition and markers for both lines"""
     fig = go.Figure()
     
-    # Add historical demand
     historical_col = f'{grade} Demand (MT)'
+    current_date = pd.Timestamp('2025-02-10')
+    
+    # Get the last point of historical data before forecast starts
+    last_historical_point = historical_df[
+        historical_df['Date'] <= current_date
+    ].iloc[-1]
+    
+    # Ensure forecast starts from the last historical point
+    forecast_df_aligned = forecast_df.copy()
+    
+    # Add the last historical point to the forecast data
+    forecast_df_aligned = pd.concat([
+        pd.DataFrame({
+            'Date': [last_historical_point['Date']],
+            'Forecasted_Demand': [last_historical_point[historical_col]]
+        }),
+        forecast_df_aligned
+    ]).drop_duplicates(subset=['Date'])
+    
+    # Sort by date to ensure proper line connection
+    forecast_df_aligned = forecast_df_aligned.sort_values('Date')
+    
+    # Plot historical data with markers
     fig.add_trace(go.Scatter(
-        x=historical_df['Date'],
-        y=historical_df[historical_col],
+        x=historical_df[historical_df['Date'] <= current_date]['Date'],
+        y=historical_df[historical_df['Date'] <= current_date][historical_col],
         name='Historical Demand',
-        line=dict(color='blue')
+        line=dict(color='blue', width=2),
+        mode='lines+markers',  # Add markers
+        marker=dict(
+            color='blue',
+            size=8,
+            symbol='circle'
+        )
     ))
     
-    # Add forecasted demand
+    # Plot forecast data starting from the last historical point with markers
     fig.add_trace(go.Scatter(
-        x=forecast_df['Date'],
-        y=forecast_df['Forecasted_Demand'],
+        x=forecast_df_aligned['Date'],
+        y=forecast_df_aligned['Forecasted_Demand'],
         name='Forecasted Demand',
-        line=dict(color='red', dash='dash')
+        line=dict(color='red', dash='dash', width=2),
+        mode='lines+markers',  # Add markers
+        marker=dict(
+            color='red',
+            size=8,
+            symbol='circle'
+        )
     ))
     
     fig.update_layout(
@@ -193,7 +227,19 @@ def plot_forecast_vs_actual(historical_df, forecast_df, grade):
         xaxis_title='Date',
         yaxis_title='Demand (MT)',
         hovermode='x unified',
-        showlegend=True
+        showlegend=True,
+        xaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='LightGray'
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='LightGray',
+            title_text='Demand (MT)'
+        ),
+        plot_bgcolor='white'
     )
     
     return fig
